@@ -1,9 +1,12 @@
-from flask import Blueprint, render_template, request, session, redirect, url_for
+from flask import Blueprint, render_template, request, session, redirect, url_for,jsonify
 from .models import Users
 from .forms import LoginForm
 from flask import make_response
 from utils.captcha import create_validate_code
 from datetime import timedelta
+import config
+from exts import db
+
 bp = Blueprint("admin", __name__, url_prefix='/admin')
 
 
@@ -62,3 +65,61 @@ def get_code():
     session['image'] = strs
 
     return response
+
+
+# @bp.route('/logout/')
+# @login_required
+# def logout():
+#    del session[user_id]
+#   return redorect(url_for('admin.login'))
+
+
+# 个人信息页视图
+@bp.route('/profile/')
+# @login_required
+def profile():
+    if config.ADMIN_USER_ID in session:
+        user_id = session.get(config.ADMIN_USER_ID)
+        user = Users.query.get(user_id)
+        return render_template('admin/profile.html', user=user)
+
+
+#核实校验密码
+@bp.route('/checkpwd/')
+#@login_required
+def checkpwd():
+    # user1 = request.args.get('username')
+    oldpwd = request.args.get('oldpwd', '')
+    # print(oldpwd)
+    if config.ADMIN_USER_ID  in session:
+        user_id = session.get(config.ADMIN_USER_ID)
+        #user = Users.query.filter_by(username='admin').first()#这里作了修改
+        user = Users.query.filter(Users.uid==user_id).first()  # 这里作了修改
+        if user.check_password(oldpwd):
+            data = {
+                "name": user.email,
+                "status": 11
+            }
+        else:
+            data = {
+                "name": None,
+                "status": 00
+            }
+        return jsonify(data)
+
+
+    @bp.route('/editpwd/',methods=['GET','POST'])
+    @login_required
+    defe editpwd():
+    if request.method =='GET':
+        return render_template('admin/edit_pwd.html')
+    else:
+        oldpwd = request.form.get('oldpwd')
+        newpwd1 = request.form.get('oldpwd1')
+        newpwd2 = request.form.get('newpwd2')
+        print(oldpwd)
+        user_id = session.get(config.ADMIN_USER_ID)
+        user = Users.query.filter_by(uid=user_id).first()
+        user.password = newpwd1
+        db.session.commit()
+        return render_template('admin/edit_pwd.html',message="密码修改成功")
